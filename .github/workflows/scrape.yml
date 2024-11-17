@@ -17,33 +17,50 @@ jobs:
       run: |-
         page_number=1
         all_data="[]"
-        url="https://goldapple.ru/front/api/catalog/products?categoryId=1000008401&cityId=0c5b2444-70a0-4932-980c-b4dc0d3f02b5&pageNumber=${page_number}&z=16-46"
+        base_url="https://goldapple.ru/front/api/catalog/products"
+        category_id="1000000256"
+        city_id="0c5b2444-70a0-4932-980c-b4dc0d3f02b5"
+        z_value="16-46"
         
         while true; do
+          # Формируем URL для запроса
+          url="${base_url}?categoryId=${category_id}%5E&cityId=${city_id}%5E&pageNumber=${page_number}%5E&z=${z_value}%5E"
+          
+          # Выводим URL для отладки
+          echo "Requesting URL: $url"
+          
           # Выполняем запрос
           response=$(curl -s "$url")
-          echo "Response: $response"  # Выводим ответ для отладки
-
-          # Получаем данные
-          data=$(echo "$response" | jq '.data')
-          echo "Fetched data: $data"  # Выводим данные для отладки
           
-          # Проверяем, есть ли данные
-          if [ "$data" == "null" ] || [ "$data" == "[]" ]; then
+          # Выводим ответ для отладки
+          echo "Response: $response"
+          
+          # Извлекаем всю структуру данных из ответа
+          data=$(echo "$response" | jq '.data')
+          
+          # Отладка: выводим всю структуру данных
+          echo "Fetched data: $data"
+          
+          # Проверяем, есть ли данные в поле 'data'
+          if [[ "$data" == "null" || "$data" == "[]" ]]; then
             echo "No more data found. Exiting."
             break
           fi
 
           # Конкатенируем данные
-          all_data=$(echo "$all_data" | jq -c ". + $data")
+          all_data=$(echo "$all_data" | jq -c ". + [$data]")
 
           # Увеличиваем номер страницы
           page_number=$((page_number + 1))
-          url="https://goldapple.ru/front/api/catalog/products?categoryId=1000008401&cityId=0c5b2444-70a0-4932-980c-b4dc0d3f02b5&pageNumber=${page_number}&z=16-46"
         done
 
         # Записываем все данные в файл
         echo "$all_data" > products_data.json
+
+        # Отладка: выводим размер и содержимое файла после записи
+        echo "Data written to products_data.json. File size: $(du -h products_data.json)"
+        echo "Contents of products_data.json (first 1000 chars):"
+        head -c 1000 products_data.json
 
     - name: Commit and push if it changed
       run: |-
