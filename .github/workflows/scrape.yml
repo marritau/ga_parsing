@@ -20,20 +20,29 @@ jobs:
         url="https://goldapple.ru/front/api/catalog/products?categoryId=1000008401&cityId=0c5b2444-70a0-4932-980c-b4dc0d3f02b5&pageNumber=${page_number}&z=16-46"
         
         while true; do
+          # Выполняем запрос
           response=$(curl -s "$url")
+          echo "Response: $response"  # Выводим ответ для отладки
 
+          # Получаем данные
           data=$(echo "$response" | jq '.data')
+          echo "Fetched data: $data"  # Выводим данные для отладки
+          
+          # Проверяем, есть ли данные
           if [ "$data" == "null" ] || [ "$data" == "[]" ]; then
             echo "No more data found. Exiting."
             break
           fi
 
+          # Конкатенируем данные
           all_data=$(echo "$all_data" | jq -c ". + $data")
 
+          # Увеличиваем номер страницы
           page_number=$((page_number + 1))
           url="https://goldapple.ru/front/api/catalog/products?categoryId=1000008401&cityId=0c5b2444-70a0-4932-980c-b4dc0d3f02b5&pageNumber=${page_number}&z=16-46"
         done
 
+        # Записываем все данные в файл
         echo "$all_data" > products_data.json
 
     - name: Commit and push if it changed
@@ -43,5 +52,4 @@ jobs:
         git add -A
         timestamp=$(date -u)
         git commit -m "Latest data: ${timestamp}" || exit 0
-        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
         git push
