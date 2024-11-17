@@ -1,0 +1,46 @@
+name: Scrape latest data
+
+on:
+  push:
+  workflow_dispatch:
+  schedule:
+  - cron: '6,26,46 * * * *'
+
+jobs:
+  scheduled:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out this repo
+      uses: actions/checkout@v3
+
+    - name: Fetch data and paginate
+      run: |-
+        page_number=1
+        all_data="[]"
+        url="https://goldapple.ru/front/api/catalog/products?categoryId=1000008401&cityId=0c5b2444-70a0-4932-980c-b4dc0d3f02b5&pageNumber=${page_number}&z=16-46"
+        
+        while true; do
+          response=$(curl -s "$url")
+
+          data=$(echo "$response" | jq '.data')
+          if [ "$data" == "null" ] || [ "$data" == "[]" ]; then
+            echo "No more data found. Exiting."
+            break
+          fi
+
+          all_data=$(echo "$all_data" | jq -c ". + $data")
+
+          page_number=$((page_number + 1))
+          url="https://goldapple.ru/front/api/catalog/products?categoryId=1000008401&cityId=0c5b2444-70a0-4932-980c-b4dc0d3f02b5&pageNumber=${page_number}&z=16-46"
+        done
+
+        echo "$all_data" > products_data.json
+
+    - name: Commit and push if it changed
+      run: |-
+        git config user.name "Automated"
+        git config user.email "actions@users.noreply.github.com"
+        git add -A
+        timestamp=$(date -u)
+        git commit -m "Latest data: ${timestamp}" || exit 0
+        git push
